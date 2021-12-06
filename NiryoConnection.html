@@ -5,22 +5,9 @@
     <meta charset="utf-8" />
     <script src="http://static.robotwebtools.org/roslibjs/current/roslib.js"></script>
     <script>
-        //url 설정
-        var niryo_url = 'ws://192.168.0.15:9090'
-
-        //android에 현재 url값 반환
-        function get_url(){
-            return niryo_url;
-        }
-
-        //android에서 url입력 받아 업데이트
-        function set_url(url){
-            niryo_url = 'ws://' + url;
-        }
-
         // ROS 정의
         var ros = new ROSLIB.Ros({
-            url: niryo_url
+            url: 'ws://192.168.0.33:9090'
         });
 
         var connected = 0;
@@ -201,9 +188,9 @@
                     cmd: {
                         cmd_type: 6,
                         tool_cmd: {
-                            tool_id: 12 ,
+                            tool_id: 12,
                             cmd_type: 1,
-                            gripper_open_speed: 50
+                            gripper_open_speed: 100
                         }
                     }
                 }
@@ -221,7 +208,7 @@
                         tool_cmd: {
                             tool_id: 12,
                             cmd_type: 2,
-                            gripper_close_speed: 50
+                            gripper_close_speed: 100
                         }
                     }
                 }
@@ -563,182 +550,6 @@
             });
         }
 
-        //android에서 hsv값 담아 호출
-        function grabCapsule_w_param(capsule_data) {
-            if (connected == 0) {
-                document.getElementById("color").textContent = "Not connected"
-                return;
-            }
-            //android에서 전달받은 인자 tokenize
-            hsv = capsule_data.split(' ');
-            h = parseInt(hsv[0]);
-            s = parseInt(hsv[1]);
-            v = parseInt(hsv[2]);
-            hdif = parseInt(hsv[3]);
-            sdif = parseInt(hsv[4]);
-            vdif = parseInt(hsv[5]);
-            console.log(h + ', ' + s + ', ' + v + ', ' + hdif + ', ' + sdif + ', ' + vdif);
-
-            toolnum = 0;
-            current_tool_id.subscribe(function(message) {
-                toolnum = message.data;
-                console.log('tool id: ' + message.data);
-                current_tool_id.unsubscribe();
-            });
-            // 기본적으로 Gripper3을 사용하고 있다고 가정함 > Large Gripper(Gripper2)로 변경(2021.11.28)
-            var toolrequest = new ROSLIB.ServiceRequest({
-                value: 12
-            });
-            select_tool_service.callService(toolrequest, function(result) {
-                console.log(result.message);
-            });
-            var MoveActionClient = new ROSLIB.ActionClient({
-                ros: ros,
-                serverName: '/niryo_one/commander/robot_action',
-                actionName: 'niryo_one_msgs/RobotMoveAction'
-            });
-
-            // color_detection 서비스를 이용해 원하는 색 범위 내에 있는 이미지 추출, x, y, yaw 반환
-            // x, y, yaw 값을 get_target_pose에 전달해 workspace 내에서 상대적인 위치 반환
-            // 이 위치로 이동
-            // grippper 조절, move joint 등 이용
-            var color_detection = new ROSLIB.Service({
-                ros: ros,
-                name: '/niryo_one_vision/color_detection',
-                serviceType: 'niryo_one_msgs/CapsuleColor'
-            });
-
-            console.log(h + ', ' + s + ', ' + v);
-            x = 0;
-            y = 0;
-            z = 0;
-            roll = 0;
-            pitch = 0;
-            yaw = 0;
-            var HSV = new ROSLIB.ServiceRequest({
-                h: h,
-                s: s,
-                v: v,
-                hdif: hdif,
-                sdif: sdif,
-                vdif: vdif
-            });
-
-            var get_target_pose = new ROSLIB.Service({
-                ros: ros,
-                name: '/niryo_one/pose_converter/get_target_pose',
-                serviceType: 'niryo_one_msgs/GetTargetPose'
-            });
-            color_detection.callService(HSV, function(result) {
-                img = document.getElementById("contour");
-                img.src = "data:image/jpg;base64," + result.img.data;
-                x = result.obj_pose.x;
-                y = result.obj_pose.y;
-                yaw = result.obj_pose.yaw;
-                console.log(x + ', ' + y + ', ' + yaw);
-                var target_request = new ROSLIB.ServiceRequest({
-                    workspace: "workspace",
-                    grip: "auto",
-                    tool_id: 12,
-                    height_offset: 0.05,
-                    x_rel: x,
-                    y_rel: y,
-                    yaw_rel: yaw,
-                });
-                get_target_pose.callService(target_request, function(result) {
-                    var canvas = document.getElementById("canvas");
-                    var ctx = canvas.getContext("2d");
-                    ctx.drawImage(img, 0, 0);
-                    x = result.target_pose.position.x + 0.02;
-                    y = result.target_pose.position.y;
-                    z = result.target_pose.position.z;
-                    roll = result.target_pose.rpy.roll;
-                    pitch = result.target_pose.rpy.pitch;
-                    yaw = result.target_pose.rpy.yaw;
-                    console.log(x + ', ' + y + ', ' + z + ', ' + roll + ', ' + pitch + ', ' + yaw);
-                    if (Math.round(x * 1000) == 387 && Math.round(y * 1000) == 75) {
-                        console.log('Capsule not found or too dark.');
-                        return;
-                    }
-                    var goal1 = new ROSLIB.Goal({
-                        actionClient: MoveActionClient,
-                        goalMessage: {
-                            cmd: {
-                                cmd_type: 2,
-                                position: {
-                                    x: x,
-                                    y: y,
-                                    z: z
-                                },
-                                rpy: {
-                                    roll: roll,
-                                    pitch: pitch,
-                                    yaw: yaw
-                                }
-                            }
-                        }
-                    });
-                    var goal2 = new ROSLIB.Goal({
-                        actionClient: MoveActionClient,
-                        goalMessage: {
-                            cmd: {
-                                cmd_type: 2,
-                                position: {
-                                    x: x,
-                                    y: y,
-                                    z: z - 0.03
-                                },
-                                rpy: {
-                                    roll: roll,
-                                    pitch: pitch,
-                                    yaw: yaw
-                                }
-                            }
-                        }
-                    });
-                    var open = new ROSLIB.Goal({
-                        actionClient: MoveActionClient,
-                        goalMessage: {
-                            cmd: {
-                                cmd_type: 6,
-                                tool_cmd: {
-                                    tool_id: 12,
-                                    cmd_type: 1,
-                                    gripper_open_speed: 100
-                                }
-                            }
-                        }
-                    });
-                    var close = new ROSLIB.Goal({
-                        actionClient: MoveActionClient,
-                        goalMessage: {
-                            cmd: {
-                                cmd_type: 6,
-                                tool_cmd: {
-                                    tool_id: 12,
-                                    cmd_type: 2,
-                                    gripper_close_speed: 100
-                                }
-                            }
-                        }
-                    });
-                    goal1.on('result', function(result) {
-                        // console.log('Final result: ' + result.status);
-                        open.send();
-                        open.on('result', function() {
-                            goal2.send();
-                            goal2.on('result', function() {
-                                close.send();
-                                close.on('result', function() {
-                                    MoveZero();
-                                });
-                            });
-                        });
-                    });
-                    goal1.send();
-                });
-            });
-        }
 
         // 색 범위 추출용 전역 변수
         var firstx;
@@ -751,19 +562,9 @@
             img = document.getElementById("image");
             ctx.clearRect(0, 0, 640, 480);
             ctx.drawImage(img, 0, 0);
-
-            //touchevent 추가
-            if(event.type == "touchstart"){
-                var rect = event.target.getBoundingClientRect();
-                var x = Math.round(event.targetTouches[0].pageX - rect.left);
-                var y = Math.round(event.targetTouches[0].pageY - rect.top);
-            }
-            else{
-                var x = event.offsetX;
-                var y = event.offsetY;
-            }
-            console.log(x + ', ' + y);
-
+            var x = event.layerX;
+            var y = event.layerY;
+            //console.log(x + ', ' + y);
             firstx = x;
             firsty = y;
         }
@@ -771,28 +572,14 @@
         function secondpoint(event) {
             var canvas = document.getElementById("canvas");
             var ctx = canvas.getContext("2d");
-
-            //touchevent 추가
-            if(event.type == "touchend"){
-                var rect = event.target.getBoundingClientRect();
-                var x = Math.round(event.changedTouches[0].pageX - rect.left);
-                var y = Math.round(event.changedTouches[0].pageY - rect.top);
-            }
-            else{
-                var x = event.offsetX;
-                var y = event.offsetY;
-            }
-            console.log(x + ', ' + y);
-
             // 캔버스에 아무 이미지도 없으면 아무 동작도 하지 않음
             if (!ctx.getImageData(0, 0, canvas.width, canvas.height).data.some(channel => channel !== 0)) {
                 document.getElementById("color").textContent = "Take Picture First"
-                ctx.strokeRect(firstx, firsty, x - firstx, y - firsty);
-                //android의 capsule 색 저장 함수 호출
-                window.android.addCapsule("255 255 255 0 0 0" + '\0');
                 return;
             }
-
+            var x = event.layerX;
+            var y = event.layerY;
+            // console.log(x + ', ' + y);
             secondx = x;
             secondy = y;
             positiongrab = 0;
@@ -934,9 +721,6 @@
             }
 
             ctx.strokeRect(smallx, smally, largex - smallx, largey - smally);
-
-            //android의 capsule 색 저장 함수 호출
-            window.android.addCapsule(midH + ' '  + midS + ' ' + midV + ' ' + Hdif + ' ' + Sdif + ' ' + Vdif + '\0');
         }
 
         // RGB에서 HSV로 변환하는 함수
@@ -1307,7 +1091,6 @@
                 });
             });
         }
-
         // (Switch on), Turn on the coffee machine(Press Lungo Button), wait for 30 sec, Wash machine: (Press Lungo Button & Wait for 30 sec)*3 times 
         function TurnOnCoffeeMachine() {
 
@@ -1317,11 +1100,9 @@
         function MakeEspresso(){}
 
         // Lower Lever, Press Lungo Button, Wait for 50 sec, Call Temi, Lift Lever
-        // 이전의 CoffeeMachine() 내용 그대로
+        // 이전의 CoffeeMachine() 내용 그대로, 수정한 부분 없음
         function MakeLungo() {
             if (connected == 0) return;
-
-            // 
             var machinegoal1 = new ROSLIB.Goal({
                 actionClient: MoveActionClient,
                 goalMessage: {
@@ -1557,6 +1338,8 @@
 
 
         // 기능 Test
+        // 아래 PressSwitch(), PressButtons(), MoveCup() 는 임시로 단계별 기능 확인용으로 만든 함수
+        // 추후에 버튼으로 클릭할 것은 통합된 함수들 TurnOnCoffeeMachine(), MakeLungo(), MakeEspresso()
         function PressSwitch() {
             var pressSwitch_pre1 = new ROSLIB.Goal({
                 actionClient: MoveActionClient,
@@ -1678,9 +1461,6 @@
                 });
             });
         }
-
-        // Hold Cup-2,-1,0, Close Gripper, Put Cup on Temi-1,0, Open Gripper, Put Cup on Temi+1
-
         function MoveCup() {
             var holdCup_pre2 = new ROSLIB.Goal({
                 actionClient: MoveActionClient,
@@ -1763,24 +1543,22 @@
                 }
             });
             opengoal.send();
-//            opengoal.on('result', function () {});
-                holdCup_pre2.send();
-                holdCup_pre2.on('result', function () {
-                    holdCup_pre1.send();
-                    holdCup_pre1.on('result', function () {
-                        holdCup_0.send();
-                        holdCup_0.on('result', function () {
-                            closegoal.send();
-                            closegoal.on('result', function () {
-                                putCupOnTemi_pre1.send();
-                                putCupOnTemi_pre1.on('result', function () {
-                                    putCupOnTemi_0.send();
-                                    putCupOnTemi_0.on('result', function () {
-                                        opengoal.send();
-                                        opengoal.on('result', function () {
-                                            putCupOnTemi_post1.send();
-                                            putCupOnTemi_post1.on('result', function () {
-                                            });
+            holdCup_pre2.send();
+            holdCup_pre2.on('result', function () {
+                holdCup_pre1.send();
+                holdCup_pre1.on('result', function () {
+                    holdCup_0.send();
+                    holdCup_0.on('result', function () {
+                        closegoal.send();
+                        closegoal.on('result', function () {
+                            putCupOnTemi_pre1.send();
+                            putCupOnTemi_pre1.on('result', function () {
+                                putCupOnTemi_0.send();
+                                putCupOnTemi_0.on('result', function () {
+                                    opengoal.send();
+                                    opengoal.on('result', function () {
+                                        putCupOnTemi_post1.send();
+                                        putCupOnTemi_post1.on('result', function () {
                                         });
                                     });
                                 });
@@ -1788,7 +1566,7 @@
                         });
                     });
                 });
-            //});
+            });
         }
     </script>
 </head>
@@ -1893,7 +1671,7 @@
         </fieldset>
     </fieldset>
     <fieldset style="border: 1px solid #FFFFFF">
-        <canvas id="canvas" style="float:left; border: 1px solid black;" crossorigin="anonymous" width="640" height="480" onmousedown="firstpoint(event)" onmouseup="secondpoint(event)" ontouchstart="firstpoint(event)" ontouchend="secondpoint(event)"></canvas>
+        <canvas id="canvas" style="float:left; border: 1px solid black;" crossorigin="anonymous" width="640" height="480" onmousedown="firstpoint(event)" onmouseup="secondpoint(event)"></canvas>
         <FORM id="wrapper" style="width:200px; float:left; text-align:center; border: 1 solid black">
             <div id="color">Drag to set HSV range</div>
             <div id="h" style='display:inline;'></div>
@@ -1910,14 +1688,17 @@
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Grab Capsule' , onclick='grabCapsule()'>
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Put Down Capsule' , onclick='PutDownCapsule()'>
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Put In Capsule' , onclick='PutInCapsule()'>
+            <INPUT type='BUTTON' style="WIDTH:100pt" value='Rest' , onclick='Rest()'>
+            
+            <!-- 임시 구현 함수 확인용 버튼, 실제 사용 시에는 버튼으로 나오지 않음  -->
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Press Switch' , onclick='PressSwitch()'>
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Press Buttons' , onclick='PressButtons()'>
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Move Cup' , onclick='MoveCup()'>
 
+            <!-- 실제 사용할 버튼  -->
             <!-- <INPUT type='BUTTON' style="WIDTH:100pt" value='Turn On CoffeeMachine' , onclick='TurnOnCoffeeMachine()'>
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Make Coffee - Lungo' , onclick='MakeLungo()'>
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Make Coffee - Espresso' , onclick='MakeEspresso()'> -->
-            <INPUT type='BUTTON' style="WIDTH:100pt" value='Rest' , onclick='Rest()'>
 
         </FORM>
     </fieldset>
