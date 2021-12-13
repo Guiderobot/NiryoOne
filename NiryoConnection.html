@@ -7,7 +7,7 @@
     <script>
         // ROS 정의
         var ros = new ROSLIB.Ros({
-            url: 'ws://192.168.0.33:9090'
+            url: 'ws://192.168.0.15:9090'
         });
 
         var connected = 0;
@@ -40,6 +40,10 @@
         // Auto Calibration만 구현함
         var request = new ROSLIB.ServiceRequest({
             value: 1
+        });
+
+        var stoprequest = new ROSLIB.ServiceRequest({
+            value: 0
         });
         // "Request Calibration" 버튼, 서비스 호출
         function requestcali() {
@@ -74,6 +78,18 @@
                 serviceType: 'niryo_one_msgs/SetInt'
             });
             activate_learning_mode.callService(request, function(result) {
+                console.log('Status: ' + result.status + ", " + result.message);
+            });
+        };
+
+        // "Learning Mode" 종료
+        function learningoff() {
+            var activate_learning_mode = new ROSLIB.Service({
+                ros: ros,
+                name: '/niryo_one/activate_learning_mode',
+                serviceType: 'niryo_one_msgs/SetInt'
+            });
+            activate_learning_mode.callService(stoprequest, function(result) {
                 console.log('Status: ' + result.status + ", " + result.message);
             });
         };
@@ -188,7 +204,7 @@
                     cmd: {
                         cmd_type: 6,
                         tool_cmd: {
-                            tool_id: 13,
+                            tool_id: 12,
                             cmd_type: 1,
                             gripper_open_speed: 100
                         }
@@ -206,7 +222,7 @@
                     cmd: {
                         cmd_type: 6,
                         tool_cmd: {
-                            tool_id: 13,
+                            tool_id: 12,
                             cmd_type: 2,
                             gripper_close_speed: 100
                         }
@@ -310,6 +326,18 @@
             tool = document.getElementById('tool');
             toolnum = tool.options[tool.selectedIndex].value;
             toolnum *= 1;
+            var toolrequest = new ROSLIB.ServiceRequest({
+                value: toolnum
+            });
+            select_tool_service.callService(toolrequest, function(result) {
+                console.log(result.message);
+            });
+        }
+
+        // "Select Tool" for Large Gripper
+        function SelectToolLarge() {
+            tool = document.getElementById('tool');
+            toolnum = 12;
             var toolrequest = new ROSLIB.ServiceRequest({
                 value: toolnum
             });
@@ -466,10 +494,10 @@
                     pitch = result.target_pose.rpy.pitch;
                     yaw = result.target_pose.rpy.yaw;
                     console.log(x + ', ' + y + ', ' + z + ', ' + roll + ', ' + pitch + ', ' + yaw);
-                    if (Math.round(x * 1000) == 387 && Math.round(y * 1000) == 75) {
+                    /*if (Math.round(x * 1000) == 387 && Math.round(y * 1000) == 75) {
                         console.log('Capsule not found or too dark.');
                         return;
-                    }
+                    }*/
                     var goal1 = new ROSLIB.Goal({
                         actionClient: MoveActionClient,
                         goalMessage: {
@@ -822,7 +850,7 @@
                     cmd: {
                         cmd_type: 6,
                         tool_cmd: {
-                            tool_id: 13,
+                            tool_id: 12,
                             cmd_type: 1,
                             gripper_open_speed: 100
                         }
@@ -835,7 +863,7 @@
                     cmd: {
                         cmd_type: 6,
                         tool_cmd: {
-                            tool_id: 13,
+                            tool_id: 12,
                             cmd_type: 2,
                             gripper_close_speed: 500
                         }
@@ -1091,8 +1119,17 @@
                 });
             });
         }
+        // (Switch on), Turn on the coffee machine(Press Lungo Button), wait for 30 sec, Wash machine: (Press Lungo Button & Wait for 30 sec)*3 times 
+        function TurnOnCoffeeMachine() {
 
-        function CoffeeMachine() {
+        }
+
+        // Lower Lever, Press Espresso Button, Wait for 25 sec, Call Temi, Lift Lever
+        function MakeEspresso(){}
+
+        // Lower Lever, Press Lungo Button, Wait for 50 sec, Call Temi, Lift Lever
+        // 이전의 CoffeeMachine() 내용 그대로, 수정한 부분 없음
+        function MakeLungo() {
             if (connected == 0) return;
             var machinegoal1 = new ROSLIB.Goal({
                 actionClient: MoveActionClient,
@@ -1266,37 +1303,37 @@
             });
             machinegoal1.send();
             machinegoal1.on('result', function() {
-            machinegoal2.send();
-            machinegoal2.on('result', function() {
-                 machinegoal3.send();
-	    machinegoal3.on('result', function() {
-	         opengoal.send();
-	         opengoal.on('result', function() {
-		machinegoal4.send();
-		machinegoal4.on('result', function() {
-		     machinegoal5.send();
-		     machinegoal5.on('result', function() {
-		          closegoal.send();
-		          closegoal.on('result', function() {
-			machinegoal6.send();
-			SetVFactorArgument(10);
-			machinegoal6.on('result', function() {
-			     buttongoal.send();
-			     buttongoal.on('result', function() {
-			          machinegoal7.send();
-			          SetVFactorArgument(100);
-			          machinegoal7.on('result', function() {
-				Rest();
-			          });
-			     });
-			});
-		          });
-		     });
-		});
-	         });
-                 });
+                machinegoal2.send();
+                machinegoal2.on('result', function() {
+                    machinegoal3.send();
+                    machinegoal3.on('result', function() {
+                        opengoal.send();
+                        opengoal.on('result', function() {
+                            machinegoal4.send();
+                            machinegoal4.on('result', function() {
+                                machinegoal5.send();
+                                machinegoal5.on('result', function() {
+                                    closegoal.send();
+                                    closegoal.on('result', function() {
+                                        machinegoal6.send();
+                                        SetVFactorArgument(10); //set velocity=10
+                                        machinegoal6.on('result', function() {
+                                            buttongoal.send();
+                                            buttongoal.on('result', function() {
+                                                machinegoal7.send();
+                                                SetVFactorArgument(100);
+                                                machinegoal7.on('result', function() {
+                                                    Rest();
+                                                });
+                                            });
+                                        });
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
             });
-        });
         }
         // "Rest" 버튼
         function Rest() {
@@ -1327,6 +1364,367 @@
             });
         }
 
+
+        // 기능 Test
+        // 아래 PressSwitch(), PressButtons(), HoldCup(), PutCupOnTemi() 는 임시로 단계별 기능 확인용으로 만든 함수
+        // 추후에 버튼으로 클릭할 것은 통합된 함수들 TurnOnCoffeeMachine(), MakeLungo(), MakeEspresso()
+        function PressSwitch() {
+            var pressSwitch_pre1 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.0097, -1.4825, 1.5000, 0.0015, -1.0029, -0.3290]
+                    }
+                }
+            });
+            var pressSwitch_pre1_cp = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.0097, -1.4825, 1.5000, 0.0015, -1.0029, -0.3290]
+                    }
+                }
+            });
+            var pressSwitch_0 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.0097, -1.4829, 1.1200, 0.0015, -0.9906, -0.3290]
+                    }
+                }
+            });
+            
+            pressSwitch_pre1.send();
+            pressSwitch_pre1.on('result', function() {
+                pressSwitch_0.send();
+                pressSwitch_0.on('result', function() {
+                    pressSwitch_pre1_cp.send();
+                    pressSwitch_pre1_cp.on('result', function() {
+                        MoveZero(); 
+                    });
+                });
+            });
+        }
+        function PressSwitch2() {
+            var pressSwitch_prep = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.09586715726418339, -0.5791868561355017, -0.6881583907863356, -0.0614355896702004, 0.03993313328563026, 0.020245819323134222]
+                    }
+                }
+            });
+            var pressSwitch_overswitch = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.03368305525498335, -0.7530373969657339, 0.7105983383119769, -0.04761258199440531, -0.9891129936902264, 0.02530727415391778]
+                    }
+                }
+            });
+            var pressSwitch_onswitch = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.02137578506566251, -1.3175792347160802, 1.0531815372034354, 0.08754571528003557, -0.7802319888115451, -0.182212373908208]
+                    }
+                }
+            });
+            var pressSwitch_pushswitch = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.02331903825345001, -1.2665578803419903, 0.939485803073519, 0.12747884856566583, -0.6481454710206143, -0.1720894642466409]
+                    }
+                }
+            });
+            
+            pressSwitch_prep.send();
+            pressSwitch_prep.on('result', function() {
+                pressSwitch_overswitch.send();
+                pressSwitch_overswitch.on('result', function() {
+                    CloseGripper();
+                    pressSwitch_onswitch.send();
+                    pressSwitch_onswitch.on('result', function() {
+                        pressSwitch_pushswitch.send();
+                        pressSwitch_pushswitch.on('result', function() {
+                            pressSwitch_overswitch.send();
+                            pressSwitch_overswitch.on('result', function() {
+                                OpenGripper();
+                                MoveZero(); 
+                            });
+                        });
+                    });
+                });
+            });
+        }
+
+        function PressButtons() {
+            var pressEspressoLungo_pre2 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.95, -0.998, 1.354, 0.005, -1.396, 0.41]
+
+                    }
+                }
+            });
+            var pressEspressoLungo_pre2_cp = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.8887, -1.1999, 1.5698, 0.0092, -1.4161, 0.4808]
+                    }
+                }
+            });
+            var pressLungo_pre1 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.987, -0.928, 1.097, 0.018, -1.253, 0.4]
+
+                    }
+                }
+            });
+            var pressLungo_0 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.987, -0.985, 1.097, 0.017, -1.253, 0.405]
+
+                    }
+                }
+            });
+            var pressEspresso_pre1 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.959, -0.6, 0.486, 0.017, -0.743, 0.385]
+
+                    }
+                }
+            });
+            var pressEspresso_0 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.962, -0.645, 0.495, 0.017, -0.736, 0.349]
+                    }
+                }
+            });
+            
+            pressEspressoLungo_pre2.send();
+            pressEspressoLungo_pre2.on('result', function() {
+                pressLungo_pre1.send();
+                pressLungo_pre1.on('result', function() {
+                    pressLungo_0.send();
+                    pressLungo_0.on('result', function() {
+                        pressEspressoLungo_pre2_cp.send();
+                        pressEspressoLungo_pre2_cp.on('result', function() {
+                            pressEspresso_pre1.send();
+                            pressEspresso_pre1.on('result', function() {
+                                pressEspresso_0.send();
+                                pressEspresso_0.on('result', function() {
+                                    MoveZero();
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        }
+        function PutCup() {
+            var pullCup_0 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.5065413309499419, -0.8267349088394192, 0.029421264533618697, -0.13362240753268587, 1.0351896859428769, 0.005061454830783556]
+                    }
+                }
+            });
+            var pullCup_1 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.4806312884461086, -1.216953785811625, 0.7066090143074185, 0.03839724354387525, 0.7034375017237946, -0.08098327729253689]
+                    }
+                }
+            });
+            var pullCup_2 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.510427837325517, -1.3156895549244472, 0.6397878372310641, -0.20734511513692633, 0.764873091393995, 0.035430183815484885]
+                    }
+                }
+            });
+            var pullCup_3= new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.4728582756949586, -1.394111266277215, 0.593411945678072, -0.07833037682950551, 0.8708494835750906, 0.005061454830783556 ]
+                    }
+                }
+            });
+            var pullCup_4 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-0.5026548245743669, -0.7393372184763949, -0.653251805746449, -0.1075122819228507, 1.3423676342938788, -0.08604473212332045]
+                    }
+                }
+            });
+            var opengoal = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 6,
+                        tool_cmd: {
+                            tool_id: 12,
+                            cmd_type: 1,
+                            gripper_open_speed: 100
+                        }
+                    }
+                }
+            });
+            var closegoal = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 6,
+                        tool_cmd: {
+                            tool_id: 12,
+                            cmd_type: 2,
+                            gripper_close_speed: 100
+                        }
+                    }
+                }
+            });
+            
+            SelectToolLarge();
+            opengoal.send();
+            opengoal.on('result', function() {
+                pullCup_0.send();
+                pullCup_0.on('result', function() {
+                    pullCup_1.send();
+                    pullCup_1.on('result', function() {
+                        closegoal.send();
+                        closegoal.on('result', function() {
+                            pullCup_2.send();
+                            pullCup_2.on('result', function() {
+                                pullCup_3.send();
+                                pullCup_3.on('result', function() {
+                                    pullCup_4.send();
+                                    pullCup_4.on('result', function() {
+                                        MoveZero();
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        }
+
+        function HoldCup() {
+            var holdCup_pre2 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-1.3635, -0.0392, -1.2302, 0.1905, 0.0875, 0.0152]
+                    }
+                }
+            });
+            var holdCup_pre1 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-1.3059, -0.8589, -0.6822, 0.1751, 1.3869, -0.0101]
+                    }
+                }
+            });
+            var holdCup_0 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-1.3823, -1.0625, -0.2962, 0.0937, 1.3608, -0.0253]
+                    }
+                }
+            });
+            
+            holdCup_pre2.send();
+            holdCup_pre2.on('result', function() {
+                holdCup_pre1.send();
+                holdCup_pre1.on('result', function() {
+                    holdCup_0.send();
+                    holdCup_0.on('result', function() {
+                        //MoveZero(); 
+                    });
+                });
+            });
+        }
+
+        function PutCupOnTemi() {
+            var putCupOnTemi_pre1 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-2.6910, -1.0790, -0.0670, 0.2100, 1.2920, -0.0300]
+                    }
+                }
+            });
+            var putCupOnTemi_0 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-2.6910, -1.3360, 0.1050, 0.2120, 1.2980, -0.0350]
+                    }
+                }
+            });
+            var putCupOnTemi_post1 = new ROSLIB.Goal({
+                actionClient: MoveActionClient,
+                goalMessage: {
+                    cmd: {
+                        cmd_type: 1,
+                        joints: [-2.686, -1.123, -0.437, 0.217, 1.313, -0.015]
+                    }
+                }
+            });
+            
+            putCupOnTemi_pre1.send();
+            putCupOnTemi_pre1.on('result', function() {
+                putCupOnTemi_0.send();
+                putCupOnTemi_0.on('result', function() {
+                    putCupOnTemi_post1.send();
+                    putCupOnTemi_post1.on('result', function() {
+                    //MoveZero(); 
+                    });
+                });
+            });
+        }
     </script>
 </head>
 
@@ -1337,6 +1735,7 @@
         <INPUT type='BUTTON' style="WIDTH:100pt" value='Request Calibration' onclick='requestcali()'>
         <INPUT type='BUTTON' style="WIDTH:100pt" value='Calibrate' onclick='calibrate()'>
         <INPUT type='BUTTON' style="WIDTH:100pt" value='Set Learning Mode' onclick='learning()'>
+        <INPUT type='BUTTON' style="WIDTH:100pt" value='Learning Mode Off' onclick='learningoff()'>
         <INPUT type='BUTTON' style="WIDTH:100pt" value='Move to Zero' onclick='MoveZero()'>
         <br>
         <INPUT type='BUTTON' style="WIDTH:100pt" value='Show State' , onclick='showstate()'>
@@ -1447,8 +1846,19 @@
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Grab Capsule' , onclick='grabCapsule()'>
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Put Down Capsule' , onclick='PutDownCapsule()'>
             <INPUT type='BUTTON' style="WIDTH:100pt" value='Put In Capsule' , onclick='PutInCapsule()'>
-            <INPUT type='BUTTON' style="WIDTH:100pt" value='Coffee Machine' , onclick='CoffeeMachine()'>
-            <INPUT type='BUTTON' style="WIDTH:100pt" value='Rest' , onclick='Rest()'
+            <INPUT type='BUTTON' style="WIDTH:100pt" value='Rest' , onclick='Rest()'>
+            
+            <!-- 임시 구현 함수 확인용 버튼, 실제 사용 시에는 버튼으로 나오지 않음  -->
+            <INPUT type='BUTTON' style="WIDTH:100pt" value='Press Switch' , onclick='PressSwitch2()'>
+            <INPUT type='BUTTON' style="WIDTH:100pt" value='Press Buttons' , onclick='PressButtons()'>
+            <INPUT type='BUTTON' style="WIDTH:100pt" value='Hold Cup' , onclick='HoldCup()'>
+            <INPUT type='BUTTON' style="WIDTH:100pt" value='Put Cup on Temi' , onclick='PutCupOnTemi()'>
+            <INPUT type='BUTTON' style="WIDTH:100pt" value='PutCup' , onclick='PutCup()'>
+
+            <!-- 실제 사용할 버튼  -->
+            <!-- <INPUT type='BUTTON' style="WIDTH:100pt" value='Turn On CoffeeMachine' , onclick='TurnOnCoffeeMachine()'>
+            <INPUT type='BUTTON' style="WIDTH:100pt" value='Make Coffee - Lungo' , onclick='MakeLungo()'>
+            <INPUT type='BUTTON' style="WIDTH:100pt" value='Make Coffee - Espresso' , onclick='MakeEspresso()'> -->
 
         </FORM>
     </fieldset>
